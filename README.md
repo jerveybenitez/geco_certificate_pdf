@@ -74,7 +74,7 @@ as-is:
     # on the server
     git pull
     bundle install
-    sudo systemctl restart canvas   # or your equivalent restart command
+    sudo systemctl restart canvas
 
 No core files are touched, so there's nothing to merge/rebase when you next
 pull updates from upstream canvas-lms — the plugin folder just travels
