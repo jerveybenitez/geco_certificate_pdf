@@ -50,7 +50,7 @@ module GecoCertificatePdf
       completed_date = Time.zone.parse(completed_at)
       start_date = enrolldate.strftime("%B %-d, %Y") || "N/A"
       finish_date = completed_date.strftime("%B %-d, %Y")
-      cert_number = "Cert # #{course.course_code} #{completed_date.strftime('%Y-%m%d')}"
+      cert_number = "Cert # #{course.course_code} #{completed_date.strftime('%Y-%m%d')}-#{user.id}"
 
       Prawn::Document.new(page_size: "A4", page_layout: :landscape, margin: 0) do |pdf|
         # background image
