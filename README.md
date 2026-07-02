@@ -61,25 +61,6 @@ reference needs the full namespaced path (`"geco_certificate_pdf/certificates#sh
 since there's no implicit engine-scoped namespace doing that resolution for
 us anymore.
 
-## Deploying to your server
-
-Since this lives entirely in its own directory, your stated workflow works
-as-is:
-
-    # on your machine
-    git add gems/plugins/geco_certificate_pdf
-    git commit -m "Add geco_certificate_pdf plugin"
-    git push
-
-    # on the server
-    git pull
-    bundle install
-    sudo systemctl restart canvas
-
-No core files are touched, so there's nothing to merge/rebase when you next
-pull updates from upstream canvas-lms — the plugin folder just travels
-alongside your fork.
-
 ## Surfacing a button in the UI (shadow view)
 
 Rather than a JS injection step, this plugin "shadows" Canvas's own course
@@ -111,46 +92,6 @@ later release — a bug fix, a new conditional block, a markup change — this
 plugin will keep silently rendering the **old** version forever, because
 Rails has no idea the two files are related. There's no warning when this
 happens; it just quietly diverges.
-
-**Practical mitigation**: before any Canvas upgrade, diff the upstream
-`app/views/courses/_course_show_secondary.html.erb` against this plugin's
-copy (minus the button block we added) to see what changed, and manually
-re-apply those changes here. There's no way to automate this away — it's
-the one ongoing maintenance cost of going this route instead of an LTI tool.
-
-The button itself only shows for student enrollments (`@context_enrollment&.student?`,
-the same guard already used by the existing "View Course Calendar" link
-right above it). Clicking it calls the plugin's own
-`/courses/:course_id/certificate` route via `fetch`, exactly like the
-JS-injection version did previously — the only thing that changed is *how*
-the button gets onto the page, not how it behaves once clicked.
-
-The button also gets a `disabled` class and a custom background color
-(`rgb(39, 53, 64)`, set inline so only this button is affected, not every
-other `.btn.button-sidebar-wide` link on the page). Eligibility for the
-`disabled` class is computed at render time by `GecoCertificatePdf::Eligibility.completed?`
-(`app/models/geco_certificate_pdf/eligibility.rb`) — the same underlying
-`CourseProgress` check the controller already enforces server-side, just
-also exposed to the view so it can know the answer *before* the student
-clicks. Clicking while ineligible short-circuits client-side with an alert,
-instead of round-tripping to the server only to get the same answer back.
-
-One thing worth knowing: this is now the **second** place that knows about
-completion logic (the controller's checks, and this helper). They currently
-agree because they're both reading from the same `CourseProgress`/`context_modules`
-source, but if you ever change the eligibility rules, both spots need updating
-— there's no single source of truth enforcing that they stay in sync.
-
-## Notes / next steps you may want
-
-- The completion check (student enrollment + `CourseProgress.completed_at`)
-  lives in `GecoCertificatePdf::CertificatesController#show`. See the
-  earlier caveat in this README's history: it's untested against a live
-  Canvas instance, and courses with no modules at all currently get denied
-  by default rather than allowed — revisit that if it doesn't match what
-  you actually want.
-- The PDF layout is intentionally bare — Prawn supports images (e.g. a
-  school logo or signature) and custom fonts if you want to dress it up.
 
 ## Table naming convention (geco_ prefix)
 
