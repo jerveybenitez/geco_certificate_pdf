@@ -30,7 +30,8 @@ module GecoCertificatePdf
                       status: :forbidden
       end
 
-      pdf = build_pdf(@current_user, @course, progress.completed_at)
+      enrolldate = @course.enrollments.where(user: @current_user, type: "StudentEnrollment").first.created_at
+      pdf = build_pdf(@current_user, @course, progress.completed_at, enrolldate)
 
       send_data pdf.render,
                 filename: "certificate-#{@course.id}.pdf",
@@ -41,54 +42,66 @@ module GecoCertificatePdf
     private
 
     # make pdf file using prawn, check later how much we can customize
-    def build_pdf(user, course, completed_at)
-      Prawn::Document.new(page_size: "A4", page_layout: :landscape, margin: 36) do |pdf|
-        accent = "273540" # matches the button color, rgb(39, 53, 64)
+    def build_pdf(user, course, completed_at, enrolldate)
+      template_path = GecoCertificatePdf::Engine.root.join(
+        "app", "assets", "images", "cert_template.png"
+      )
 
-        # Outer border, right at the margin edge
-        pdf.stroke_color accent
-        pdf.line_width 2
-        pdf.stroke_rectangle [0, pdf.bounds.height], pdf.bounds.width, pdf.bounds.height
+      completed_date = Time.zone.parse(completed_at)
+      start_date = enrolldate.strftime("%B %-d, %Y") || "N/A"
+      finish_date = completed_date.strftime("%B %-d, %Y")
+      cert_number = "Cert # #{course.course_code} #{completed_date.strftime('%Y-%m%d')}"
 
-        # Thin inner border for a classic "double frame" look
-        inset = 10
-        pdf.line_width 0.75
-        pdf.stroke_rectangle [inset, pdf.bounds.height - inset],
-                              pdf.bounds.width - (inset * 2),
-                              pdf.bounds.height - (inset * 2)
+      Prawn::Document.new(page_size: "A4", page_layout: :landscape, margin: 0) do |pdf|
+        # background image
+        pdf.image template_path.to_s, at: [0, pdf.bounds.top], width: pdf.bounds.width
 
-        pdf.move_down 50
+        font_path = GecoCertificatePdf::Engine.root.join("app", "assets", "fonts")
+        pdf.font_families.update(
+          "Radley" => {
+            normal: font_path.join("Radley-Regular.ttf").to_s,
+            italic: font_path.join("Radley-Italic.ttf").to_s
+          }
+        )
 
-        pdf.fill_color accent
-        pdf.font_size(14) { pdf.text "C E R T I F I C A T E   O F   C O M P L E T I O N", align: :center, style: :bold }
-
-        pdf.move_down 10
-        pdf.stroke_color accent
-        pdf.line_width 1
-        center_x = pdf.bounds.width / 2
-        pdf.stroke_horizontal_line(center_x - 80, center_x + 80)
-
-        pdf.move_down 40
-        pdf.fill_color "000000"
-        pdf.font_size(14) { pdf.text "This certifies that", align: :center, style: :italic }
-
-        pdf.move_down 14
-        pdf.fill_color accent
-        pdf.font_size(30) { pdf.text user.name, align: :center, style: :bold }
-
-        pdf.move_down 18
-        pdf.fill_color "000000"
-        pdf.font_size(14) { pdf.text "has successfully completed the course", align: :center, style: :italic }
-
-        pdf.move_down 14
-        pdf.fill_color accent
-        pdf.font_size(22) { pdf.text course.name, align: :center, style: :bold }
-
-        pdf.move_down 60
-        pdf.fill_color "555555"
-        pdf.font_size(12) do
-          pdf.text "Completed on #{Time.zone.parse(completed_at).strftime('%B %-d, %Y')}", align: :center
+        # student name
+        pdf.font("Radley", style: :italic) do 
+          pdf.formatted_text_box(
+            [{ text: user.name, styles: [:underline], size: 36 }],
+            at: [0, 310], width: 842, align: :center
+          ) 
         end
+
+        # course description + cert number
+        blue = "2C4770"
+        pdf.font("Radley") do 
+          pdf.formatted_text_box(
+            [
+              { text: "Successful completion of an ", color: blue, size: 14 },
+              { text: "instructor-led upskilling program", color: blue, size: 14, styles: [:underline] },
+              { text: " titled,", color: blue, size: 14 }
+            ],
+            at: [0, 237], width: 842, align: :center
+          )
+
+          pdf.formatted_text_box(
+            [
+              { text: course.name, color: blue, size: 14, styles: [:underline] },
+              { text: " conducted on ", color: blue, size: 14 },
+              { text: start_date, color: blue, size: 14, styles: [:underline] },
+              { text: " to ", color: blue, size: 14 },
+              { text: finish_date, color: blue, size: 14, styles: [:underline] },
+              { text: ".",  color: blue, size: 14 }
+            ],
+            at: [0, 220], width: 842, align: :center
+          )
+        end
+
+        pdf.formatted_text_box(
+          [{ text: cert_number, color: "888888", size: 11 }],
+          at: [36, 28], width: 300
+        )
+
       end
     end
 
