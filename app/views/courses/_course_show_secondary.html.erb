@@ -11,6 +11,14 @@
   css_bundle :course_show_secondary
 %>
 
+<% if @context_enrollment&.student? && (geco_pending = GecoCertificatePdf::Eligibility.pending_banner_for(@context, @current_user)) %>
+  <div style="background: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 15px; margin-bottom: 15px; border-radius: 4px;">
+    <strong>🎉 Congratulations!</strong>
+    You've completed this course. Your certificate has been emailed to you, and you can also download it from the sidebar.
+  </div>
+  <% geco_pending.mark_banner_shown! %>
+<% end %>
+
 <div id="course_show_secondary">
   <% @can_manage = can_do(@context, @current_user, :manage) %>
   <% @can_create_announcements = @context.announcements.temp_record.grants_right?(@current_user, session, :create) %>
