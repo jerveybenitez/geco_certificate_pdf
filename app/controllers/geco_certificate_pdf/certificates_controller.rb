@@ -31,7 +31,15 @@ module GecoCertificatePdf
       end
 
       enrolldate = @course.enrollments.where(user: @current_user, type: "StudentEnrollment").first.created_at
-      pdf_bytes = GecoCertificatePdf::PdfGenerator.build(@current_user, @course, progress.completed_at, enrolldate)
+
+      begin
+        pdf_bytes = GecoCertificatePdf::PdfGenerator.build(@current_user, @course, progress.completed_at, enrolldate)
+      rescue GecoCertificatePdf::PdfGenerationError => e
+        Rails.logger.error("[geco_certificate_pdf] #{e.message}")
+        return render json: { error: "pdf_generation_failed",
+                               message: "We couldn't generate your certificate. Please try again later." },
+                      status: :internal_server_error
+      end
 
       send_data pdf_bytes,
                 filename: "certificate-#{@course.id}.pdf",

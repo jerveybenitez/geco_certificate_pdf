@@ -1,6 +1,6 @@
 module GecoCertificatePdf
   class CertificateMailer < ActionMailer::Base
-    default from: "noreply@upskilltoday.com"
+    default from: -> { HostUrl.outgoing_email_address || "noreply@upskilltoday.com" }
     self.smtp_settings = (ActionMailer::Base.smtp_settings || {}).merge(
       open_timeout: 30,
       read_timeout: 60
@@ -16,9 +16,14 @@ module GecoCertificatePdf
       return unless enrollment
       return if user.email.blank?
 
-      pdf_bytes = GecoCertificatePdf::PdfGenerator.build(
-        user, course, progress.completed_at, enrollment.created_at
-      )
+      begin
+        pdf_bytes = GecoCertificatePdf::PdfGenerator.build(
+          user, course, progress.completed_at, enrollment.created_at
+        )
+      rescue GecoCertificatePdf::PdfGenerationError => e
+        Rails.logger.error("[geco_certificate_pdf] Failed to generate certificate for user #{user.id}, course #{course.id}: #{e.message}")
+        return
+      end
 
       attachments["certificate-#{course.id}.pdf"] = pdf_bytes
 
